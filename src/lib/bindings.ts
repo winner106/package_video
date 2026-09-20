@@ -43,6 +43,22 @@ async savePreferences(preferences: AppPreferences) : Promise<Result<null, string
     else return { status: "error", error: e  as any };
 }
 },
+async getParcelRecordingDirectory() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_parcel_recording_directory") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async saveParcelRecordingMp4(barcode: string, webmData: number[], maxStorageBytes: number | null) : Promise<Result<SaveParcelRecordingResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_parcel_recording_mp4", { barcode, webmData, maxStorageBytes }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Sends a native system notification.
  * On mobile platforms, returns an error as notifications are not yet supported.
@@ -194,7 +210,12 @@ auto_start: boolean | null;
 /**
  * Custom mood candidates per locale. Key: locale code, Value: list of moods.
  */
-mood_candidates: Partial<{ [key in string]: string[] }> | null }
+mood_candidates: Partial<{ [key in string]: string[] }> | null; 
+/**
+ * Optional custom directory for parcel video recordings.
+ */
+recording_directory: string | null }
+export type SaveParcelRecordingResponse = { file_name: string; file_path: string; file_size_bytes: number; deleted_files: string[]; total_size_bytes: number }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 /**
  * Error types for recovery operations (typed for frontend matching)

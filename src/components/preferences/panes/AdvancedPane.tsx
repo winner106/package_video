@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { open } from '@tauri-apps/plugin-dialog'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -19,10 +23,15 @@ export function AdvancedPane() {
   // Example settings (not persisted)
   const [exampleAdvancedToggle, setExampleAdvancedToggle] = useState(false)
   const [exampleDropdown, setExampleDropdown] = useState('option1')
+  const [recordingDirectoryInput, setRecordingDirectoryInput] = useState('')
 
   // Autostart state
   const [isAutoStartEnabled, setIsAutoStartEnabled] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    setRecordingDirectoryInput(preferences?.recording_directory ?? '')
+  }, [preferences?.recording_directory])
 
   // Initialize autostart status
   useEffect(() => {
@@ -91,6 +100,68 @@ export function AdvancedPane() {
     )
   }
 
+  const handleBrowseRecordingDirectory = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+      })
+
+      if (!selected || Array.isArray(selected)) {
+        return
+      }
+
+      setRecordingDirectoryInput(selected)
+    } catch (error) {
+      logger.error('Failed to select recording directory', { error })
+      toast.error(t('toast.error.generic'))
+    }
+  }
+
+  const handleSaveRecordingDirectory = () => {
+    if (!preferences) {
+      return
+    }
+
+    const trimmed = recordingDirectoryInput.trim()
+    savePreferences.mutate(
+      {
+        ...preferences,
+        recording_directory: trimmed || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('toast.success.preferencesSaved'))
+        },
+        onError: () => {
+          toast.error(t('toast.error.preferencesSaved'))
+        },
+      }
+    )
+  }
+
+  const handleResetRecordingDirectory = () => {
+    if (!preferences) {
+      return
+    }
+
+    setRecordingDirectoryInput('')
+    savePreferences.mutate(
+      {
+        ...preferences,
+        recording_directory: null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('toast.success.preferencesSaved'))
+        },
+        onError: () => {
+          toast.error(t('toast.error.preferencesSaved'))
+        },
+      }
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Startup settings */}
@@ -150,6 +221,49 @@ export function AdvancedPane() {
               <SelectItem value="quit">{t('preferences.advanced.closeBehavior.quit')}</SelectItem>
             </SelectContent>
           </Select>
+        </SettingsField>
+      </SettingsSection>
+
+      <SettingsSection title={t('preferences.advanced.recording.title')}>
+        <SettingsField
+          label={t('preferences.advanced.recording.directory.label')}
+          description={t('preferences.advanced.recording.directory.description')}
+        >
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={recordingDirectoryInput}
+                onChange={event => setRecordingDirectoryInput(event.target.value)}
+                placeholder={t('preferences.advanced.recording.directory.placeholder')}
+                disabled={!preferences || savePreferences.isPending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBrowseRecordingDirectory}
+                disabled={!preferences || savePreferences.isPending}
+              >
+                {t('preferences.advanced.recording.directory.browse')}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={handleSaveRecordingDirectory}
+                disabled={!preferences || savePreferences.isPending}
+              >
+                {t('preferences.advanced.recording.directory.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleResetRecordingDirectory}
+                disabled={!preferences || savePreferences.isPending}
+              >
+                {t('preferences.advanced.recording.directory.reset')}
+              </Button>
+            </div>
+          </div>
         </SettingsField>
       </SettingsSection>
 

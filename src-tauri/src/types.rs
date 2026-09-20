@@ -52,6 +52,9 @@ pub struct AppPreferences {
     pub auto_start: Option<bool>,
     /// Custom mood candidates per locale. Key: locale code, Value: list of moods.
     pub mood_candidates: Option<HashMap<String, Vec<String>>>,
+    /// Optional custom directory for parcel video recordings.
+    /// If None, defaults to app data dir + parcel-recordings.
+    pub recording_directory: Option<String>,
 }
 
 impl Default for AppPreferences {
@@ -65,6 +68,7 @@ impl Default for AppPreferences {
             language: None,          // None means use system locale
             auto_start: Some(false), // Default to not auto-start
             mood_candidates: Some(default_mood_candidates()),
+            recording_directory: None,
         }
     }
 }
