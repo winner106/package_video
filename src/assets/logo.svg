@@ -1,0 +1,126 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="rgb(0,63,180)"/>
+        <stop offset="0.55" stop-color="#004ea2"/>
+        <stop offset="1" stop-color="rgb(11,30,119)"/>
+      </linearGradient>
+
+      <!-- Soft corner glow -->
+      <radialGradient id="glow" cx="30%" cy="22%" r="72%">
+        <stop offset="0" stop-color="#9ae6ff" stop-opacity="0.35"/>
+        <stop offset="0.45" stop-color="#4fd4ff" stop-opacity="0.16"/>
+        <stop offset="1" stop-color="white" stop-opacity="0"/>
+      </radialGradient>
+
+      <!-- Subtle noise -->
+      <filter id="noise" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+        <feColorMatrix type="matrix"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 .10 0"/>
+      </filter>
+
+      <!-- Inner shadow -->
+      <filter id="innerShadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feOffset dx="0" dy="16"/>
+        <feGaussianBlur stdDeviation="16" result="b"/>
+        <feComposite in="b" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="s"/>
+        <feColorMatrix in="s" type="matrix"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 .58 0"/>
+        <feComposite in2="SourceGraphic" operator="over"/>
+      </filter>
+
+      <!-- Text glow: blue-cyan -->
+      <filter id="textGlow" x="-45%" y="-45%" width="190%" height="190%">
+        <feGaussianBlur stdDeviation="11" result="blur"/>
+        <feColorMatrix in="blur" type="matrix"
+          values="0 0 0 0 0.20
+                  0 0 0 0 0.78
+                  0 0 0 0 1.00
+                  0 0 0 .65 0" result="glow"/>
+        <feComposite in="glow" in2="SourceGraphic" operator="over"/>
+      </filter>
+
+      <!-- Grid pattern -->
+      <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+        <path d="M56 0H0V56" fill="none" stroke="rgba(255,255,255,0.055)" stroke-width="2"/>
+      </pattern>
+
+      <!-- Scanlines -->
+      <pattern id="scan" width="1" height="18" patternUnits="userSpaceOnUse">
+        <rect width="1" height="18" fill="rgba(255,255,255,0.00)"/>
+        <rect y="0" width="1" height="2" fill="rgba(255,255,255,0.035)"/>
+      </pattern>
+
+      <!-- Vignette (edges darker) -->
+      <radialGradient id="vignette" cx="50%" cy="45%" r="75%">
+        <stop offset="0" stop-color="rgba(0,0,0,0)"/>
+        <stop offset="1" stop-color="rgba(0,0,0,0.35)"/>
+      </radialGradient>
+    </defs>
+
+    <!-- Base -->
+    <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+
+    <!-- Glow wash -->
+    <rect width="1024" height="1024" rx="230" fill="url(#glow)"/>
+
+    <!-- Grid + scanlines -->
+    <rect width="1024" height="1024" rx="230" fill="url(#grid)" opacity="0.65"/>
+    <rect width="1024" height="1024" rx="230" fill="url(#scan)" opacity="0.35"/>
+
+    <!-- Noise -->
+    <rect width="1024" height="1024" rx="230" filter="url(#noise)" opacity="0.9"/>
+
+    <!-- Vignette -->
+    <rect width="1024" height="1024" rx="230" fill="url(#vignette)" opacity="0.85"/>
+
+    <!-- Inner shadow -->
+    <rect width="1024" height="1024" rx="230" fill="transparent" filter="url(#innerShadow)"/>
+
+    <!-- Neon ring -->
+    <rect x="36" y="36"
+          width="952" height="952"
+          rx="210"
+          fill="transparent"
+          stroke="rgba(79,212,255,0.20)"
+          stroke-width="12"/>
+    <rect x="61" y="61"
+          width="901" height="901"
+          rx="195"
+          fill="transparent"
+          stroke="rgba(255,255,255,0.085)"
+          stroke-width="6"/>
+
+    <!-- Accent arc -->
+    <path d="M120 270 C170 150 280 90 460 70"
+          fill="none" stroke="rgba(79,212,255,0.24)" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="460" cy="70" r="10" fill="rgba(79,212,255,0.42)"/>
+
+    <!-- Subtle tech hex mark -->
+    <g opacity="0.15" transform="translate(512,512)">
+      <path d="M0,-255 220,-128 220,128 0,255 -220,128 -220,-128 Z"
+            fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="10"/>
+      <path d="M0,-186 160,-93 160,93 0,186 -160,93 -160,-93 Z"
+            fill="none" stroke="rgba(79,212,255,0.65)" stroke-width="8"/>
+    </g>
+    <!-- Text (tspan multiline, block-centered) -->
+    <g filter="url(#textGlow)">
+      <text x="512" y="512"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            dy="0.08em"
+            font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Noto Sans, sans-serif"
+            font-size="560"
+            font-weight="850"
+            fill="rgba(255,255,255,0.95)">
+        <tspan x="512" dy="0" letter-spacing="0">T</tspan>
+      </text>
+    </g>
+  </svg>
