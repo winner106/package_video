@@ -89,6 +89,21 @@ fn now_filename_prefix() -> String {
     chrono::Local::now().format("%Y%m%d_%H%M%S").to_string()
 }
 
+#[cfg(target_os = "windows")]
+fn ffmpeg_where_candidates() -> Vec<PathBuf> {
+    let output = Command::new("where").arg("ffmpeg").output();
+
+    match output {
+        Ok(output) if output.status.success() => String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(PathBuf::from)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn ffmpeg_command_candidates() -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
@@ -104,14 +119,18 @@ fn ffmpeg_command_candidates() -> Vec<PathBuf> {
         candidates.push(PathBuf::from("ffmpeg.exe"));
 
         candidates.push(PathBuf::from(r"C:\ffmpeg\bin\ffmpeg.exe"));
+        candidates.push(PathBuf::from(r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"));
         candidates.push(PathBuf::from(r"C:\Program Files\ffmpeg\bin\ffmpeg.exe"));
         candidates.push(PathBuf::from(r"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe"));
 
         if let Some(user_profile) = std::env::var_os("USERPROFILE") {
             let user_home = PathBuf::from(user_profile);
+            candidates.push(user_home.join("ffmpeg/bin/ffmpeg.exe"));
             candidates.push(user_home.join("scoop/shims/ffmpeg.exe"));
             candidates.push(user_home.join("AppData/Local/Microsoft/WinGet/Links/ffmpeg.exe"));
         }
+
+        candidates.extend(ffmpeg_where_candidates());
     }
 
     if let Some(path_var) = std::env::var_os("PATH") {
@@ -119,6 +138,8 @@ fn ffmpeg_command_candidates() -> Vec<PathBuf> {
             candidates.push(directory.join("ffmpeg"));
             if cfg!(target_os = "windows") {
                 candidates.push(directory.join("ffmpeg.exe"));
+                candidates.push(directory.join("ffmpeg.cmd"));
+                candidates.push(directory.join("ffmpeg.bat"));
             }
         }
     }
