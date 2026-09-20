@@ -97,6 +97,7 @@ fn ffmpeg_where_candidates() -> Vec<PathBuf> {
         Ok(output) if output.status.success() => String::from_utf8_lossy(&output.stdout)
             .lines()
             .map(str::trim)
+            .map(|line| line.trim_matches('"').trim())
             .filter(|line| !line.is_empty())
             .map(PathBuf::from)
             .collect(),
@@ -151,6 +152,32 @@ fn ffmpeg_command_candidates() -> Vec<PathBuf> {
         .collect()
 }
 
+#[cfg(target_os = "windows")]
+fn is_cmd_wrapper(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("cmd") || ext.eq_ignore_ascii_case("bat"))
+        .unwrap_or(false)
+}
+
+fn run_ffmpeg(candidate: &Path, args: &[&str]) -> std::io::Result<std::process::Output> {
+    #[cfg(target_os = "windows")]
+    {
+        if is_cmd_wrapper(candidate) {
+            return Command::new("cmd").arg("/C").arg(candidate).args(args).output();
+        }
+    }
+
+    Command::new(candidate).args(args).output()
+}
+
+fn can_run_ffmpeg(candidate: &Path) -> bool {
+    match run_ffmpeg(candidate, &["-version"]) {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
 fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), String> {
     let candidates = ffmpeg_command_candidates();
     let mut attempted: Vec<String> = Vec::new();
@@ -158,20 +185,27 @@ fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), St
     for candidate in candidates {
         attempted.push(candidate.to_string_lossy().to_string());
 
-        let output = Command::new(&candidate)
-            .arg("-y")
-            .arg("-i")
-            .arg(input_path)
-            .arg("-c:v")
-            .arg("libx264")
-            .arg("-preset")
-            .arg("veryfast")
-            .arg("-pix_fmt")
-            .arg("yuv420p")
-            .arg("-movflags")
-            .arg("+faststart")
-            .arg(output_path)
-            .output();
+        if !can_run_ffmpeg(&candidate) {
+            continue;
+        }
+
+        let output = run_ffmpeg(
+            &candidate,
+            &[
+                "-y",
+                "-i",
+                input_path.to_string_lossy().as_ref(),
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                output_path.to_string_lossy().as_ref(),
+            ],
+        );
 
         match output {
             Ok(output) => {
