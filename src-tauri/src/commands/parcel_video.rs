@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashSet;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::UNIX_EPOCH;
@@ -87,29 +89,93 @@ fn now_filename_prefix() -> String {
     chrono::Local::now().format("%Y%m%d_%H%M%S").to_string()
 }
 
-fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), String> {
-    let output = Command::new("ffmpeg")
-        .arg("-y")
-        .arg("-i")
-        .arg(input_path)
-        .arg("-c:v")
-        .arg("libx264")
-        .arg("-preset")
-        .arg("veryfast")
-        .arg("-pix_fmt")
-        .arg("yuv420p")
-        .arg("-movflags")
-        .arg("+faststart")
-        .arg(output_path)
-        .output()
-        .map_err(|e| format!("Failed to execute ffmpeg: {e}"))?;
+fn ffmpeg_command_candidates() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("ffmpeg transcoding failed: {stderr}"));
+    if let Some(custom) = std::env::var_os("FFMPEG_PATH") {
+        let custom_path = PathBuf::from(custom);
+        if !custom_path.as_os_str().is_empty() {
+            candidates.push(custom_path);
+        }
     }
 
-    Ok(())
+    candidates.push(PathBuf::from("ffmpeg"));
+    if cfg!(target_os = "windows") {
+        candidates.push(PathBuf::from("ffmpeg.exe"));
+
+        candidates.push(PathBuf::from(r"C:\ffmpeg\bin\ffmpeg.exe"));
+        candidates.push(PathBuf::from(r"C:\Program Files\ffmpeg\bin\ffmpeg.exe"));
+        candidates.push(PathBuf::from(r"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe"));
+
+        if let Some(user_profile) = std::env::var_os("USERPROFILE") {
+            let user_home = PathBuf::from(user_profile);
+            candidates.push(user_home.join("scoop/shims/ffmpeg.exe"));
+            candidates.push(user_home.join("AppData/Local/Microsoft/WinGet/Links/ffmpeg.exe"));
+        }
+    }
+
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for directory in std::env::split_paths(&path_var) {
+            candidates.push(directory.join("ffmpeg"));
+            if cfg!(target_os = "windows") {
+                candidates.push(directory.join("ffmpeg.exe"));
+            }
+        }
+    }
+
+    let mut dedup = HashSet::new();
+    candidates
+        .into_iter()
+        .filter(|path| dedup.insert(path.to_string_lossy().to_lowercase()))
+        .collect()
+}
+
+fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), String> {
+    let candidates = ffmpeg_command_candidates();
+    let mut attempted: Vec<String> = Vec::new();
+
+    for candidate in candidates {
+        attempted.push(candidate.to_string_lossy().to_string());
+
+        let output = Command::new(&candidate)
+            .arg("-y")
+            .arg("-i")
+            .arg(input_path)
+            .arg("-c:v")
+            .arg("libx264")
+            .arg("-preset")
+            .arg("veryfast")
+            .arg("-pix_fmt")
+            .arg("yuv420p")
+            .arg("-movflags")
+            .arg("+faststart")
+            .arg(output_path)
+            .output();
+
+        match output {
+            Ok(output) => {
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("ffmpeg transcoding failed: {stderr}"));
+                }
+                return Ok(());
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                continue;
+            }
+            Err(error) => {
+                return Err(format!(
+                    "Failed to execute ffmpeg binary '{}': {error}",
+                    candidate.display()
+                ));
+            }
+        }
+    }
+
+    Err(format!(
+        "Failed to execute ffmpeg: program not found. Tried: {}. Please ensure ffmpeg is in PATH or set FFMPEG_PATH to the full executable path.",
+        attempted.join(", ")
+    ))
 }
 
 fn list_mp4_files(dir: &Path) -> Result<Vec<(PathBuf, u64, u128)>, String> {
