@@ -6,6 +6,8 @@ use std::process::Command;
 use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 
+use crate::types::AppPreferences;
+
 const DEFAULT_STORAGE_BYTES: u64 = 100 * 1024 * 1024 * 1024;
 const MAX_BARCODE_LENGTH: usize = 120;
 
@@ -37,13 +39,46 @@ fn sanitize_barcode(barcode: &str) -> String {
     sanitized
 }
 
-fn recording_root_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let app_data_dir = app
-        .path()
+fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {e}"))?;
+        .map_err(|e| format!("Failed to get app data directory: {e}"))
+}
 
-    let target = app_data_dir.join("parcel-recordings");
+fn configured_recording_dir(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    let prefs_path = super::preferences::get_preferences_path(app)?;
+
+    if !prefs_path.exists() {
+        return Ok(None);
+    }
+
+    let content = match fs::read_to_string(&prefs_path) {
+        Ok(content) => content,
+        Err(error) => {
+            log::warn!("Failed to read preferences for recording directory: {error}");
+            return Ok(None);
+        }
+    };
+
+    let preferences: AppPreferences = match serde_json::from_str(&content) {
+        Ok(preferences) => preferences,
+        Err(error) => {
+            log::warn!("Failed to parse preferences for recording directory: {error}");
+            return Ok(None);
+        }
+    };
+
+    Ok(preferences
+        .recording_directory
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from))
+}
+
+fn recording_root_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let fallback_dir = app_data_dir(app)?.join("parcel-recordings");
+    let target = configured_recording_dir(app)?.unwrap_or(fallback_dir);
+
     fs::create_dir_all(&target).map_err(|e| format!("Failed to create recording directory: {e}"))?;
     Ok(target)
 }

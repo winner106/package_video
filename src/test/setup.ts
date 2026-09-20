@@ -41,6 +41,7 @@ vi.mock('@/lib/tauri-bindings', () => ({
         language: null,
         close_behavior: 'ask',
         silent_start: false,
+        recording_directory: null,
         mood_candidates: {
           en: ['😀 Feeling great'],
         },

@@ -210,7 +210,11 @@ auto_start: boolean | null;
 /**
  * Custom mood candidates per locale. Key: locale code, Value: list of moods.
  */
-mood_candidates: Partial<{ [key in string]: string[] }> | null }
+mood_candidates: Partial<{ [key in string]: string[] }> | null; 
+/**
+ * Optional custom directory for parcel video recordings.
+ */
+recording_directory: string | null }
 export type SaveParcelRecordingResponse = { file_name: string; file_path: string; file_size_bytes: number; deleted_files: string[]; total_size_bytes: number }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 /**

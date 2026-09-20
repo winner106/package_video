@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { commands } from '@/lib/tauri-bindings'
+import { usePreferences } from '@/services/preferences'
 
 type RecordingStatus = 'idle' | 'recording' | 'saving'
 
@@ -36,6 +37,7 @@ export function ParcelVideoRecorder() {
   const [recordingDir, setRecordingDir] = useState('')
   const [maxStorageGb, setMaxStorageGb] = useState<number>(DEFAULT_STORAGE_GB)
   const [countdownMs, setCountdownMs] = useState(0)
+  const { data: preferences } = usePreferences()
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -57,7 +59,7 @@ export function ParcelVideoRecorder() {
         setRecordingDir(result.data)
       }
     })
-  }, [])
+  }, [preferences?.recording_directory])
 
   useEffect(() => {
     return () => {

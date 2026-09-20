@@ -23,6 +23,7 @@ export function usePreferences() {
     theme_palette: 'default',
     silent_start: false,
     mood_candidates: DEFAULT_MOOD_CANDIDATES,
+    recording_directory: null,
   }
 
   const normalizePreferences = (preferences: AppPreferences): AppPreferences => ({
@@ -33,6 +34,7 @@ export function usePreferences() {
     theme_palette: preferences.theme_palette ?? 'default',
     silent_start: preferences.silent_start ?? false,
     mood_candidates: preferences.mood_candidates ?? DEFAULT_MOOD_CANDIDATES,
+    recording_directory: preferences.recording_directory ?? null,
   })
 
   return useQuery({

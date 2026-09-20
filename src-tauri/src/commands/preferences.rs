@@ -10,7 +10,7 @@ use crate::types::{
 };
 
 /// Gets the path to the preferences file.
-fn get_preferences_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn get_preferences_path(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
@@ -84,10 +84,16 @@ pub async fn load_preferences(app: AppHandle) -> Result<AppPreferences, String> 
 /// Uses atomic write (temp file + rename) to prevent corruption.
 #[tauri::command]
 #[specta::specta]
-pub async fn save_preferences(app: AppHandle, preferences: AppPreferences) -> Result<(), String> {
+pub async fn save_preferences(app: AppHandle, mut preferences: AppPreferences) -> Result<(), String> {
     // Validate theme value
     validate_theme(&preferences.theme)?;
     validate_close_behavior(&preferences.close_behavior)?;
+
+    preferences.recording_directory = preferences
+        .recording_directory
+        .as_ref()
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty());
 
     log::debug!("Saving preferences to disk: {preferences:?}");
     let prefs_path = get_preferences_path(&app)?;
