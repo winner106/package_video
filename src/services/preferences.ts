@@ -24,6 +24,7 @@ export function usePreferences() {
     silent_start: false,
     mood_candidates: DEFAULT_MOOD_CANDIDATES,
     recording_directory: null,
+    ffmpeg_executable_path: null,
   }
 
   const normalizePreferences = (preferences: AppPreferences): AppPreferences => ({
@@ -35,6 +36,7 @@ export function usePreferences() {
     silent_start: preferences.silent_start ?? false,
     mood_candidates: preferences.mood_candidates ?? DEFAULT_MOOD_CANDIDATES,
     recording_directory: preferences.recording_directory ?? null,
+    ffmpeg_executable_path: preferences.ffmpeg_executable_path ?? null,
   })
 
   return useQuery({

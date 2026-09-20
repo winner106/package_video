@@ -42,6 +42,7 @@ vi.mock('@/lib/tauri-bindings', () => ({
         close_behavior: 'ask',
         silent_start: false,
         recording_directory: null,
+        ffmpeg_executable_path: null,
         mood_candidates: {
           en: ['😀 Feeling great'],
         },

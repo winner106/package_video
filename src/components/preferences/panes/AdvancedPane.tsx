@@ -24,6 +24,7 @@ export function AdvancedPane() {
   const [exampleAdvancedToggle, setExampleAdvancedToggle] = useState(false)
   const [exampleDropdown, setExampleDropdown] = useState('option1')
   const [recordingDirectoryInput, setRecordingDirectoryInput] = useState('')
+  const [ffmpegExecutableInput, setFfmpegExecutableInput] = useState('')
 
   // Autostart state
   const [isAutoStartEnabled, setIsAutoStartEnabled] = useState(false)
@@ -31,7 +32,8 @@ export function AdvancedPane() {
 
   useEffect(() => {
     setRecordingDirectoryInput(preferences?.recording_directory ?? '')
-  }, [preferences?.recording_directory])
+    setFfmpegExecutableInput(preferences?.ffmpeg_executable_path ?? '')
+  }, [preferences?.recording_directory, preferences?.ffmpeg_executable_path])
 
   // Initialize autostart status
   useEffect(() => {
@@ -128,6 +130,74 @@ export function AdvancedPane() {
       {
         ...preferences,
         recording_directory: trimmed || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('toast.success.preferencesSaved'))
+        },
+        onError: () => {
+          toast.error(t('toast.error.preferencesSaved'))
+        },
+      }
+    )
+  }
+
+  const handleBrowseFfmpegExecutable = async () => {
+    try {
+      const selected = await open({
+        directory: false,
+        multiple: false,
+        filters: [
+          {
+            name: 'FFmpeg',
+            extensions: ['exe', 'cmd', 'bat'],
+          },
+        ],
+      })
+
+      if (!selected || Array.isArray(selected)) {
+        return
+      }
+
+      setFfmpegExecutableInput(selected)
+    } catch (error) {
+      logger.error('Failed to select ffmpeg executable', { error })
+      toast.error(t('toast.error.generic'))
+    }
+  }
+
+  const handleSaveFfmpegExecutable = () => {
+    if (!preferences) {
+      return
+    }
+
+    const trimmed = ffmpegExecutableInput.trim()
+    savePreferences.mutate(
+      {
+        ...preferences,
+        ffmpeg_executable_path: trimmed || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('toast.success.preferencesSaved'))
+        },
+        onError: () => {
+          toast.error(t('toast.error.preferencesSaved'))
+        },
+      }
+    )
+  }
+
+  const handleResetFfmpegExecutable = () => {
+    if (!preferences) {
+      return
+    }
+
+    setFfmpegExecutableInput('')
+    savePreferences.mutate(
+      {
+        ...preferences,
+        ffmpeg_executable_path: null,
       },
       {
         onSuccess: () => {
@@ -261,6 +331,47 @@ export function AdvancedPane() {
                 disabled={!preferences || savePreferences.isPending}
               >
                 {t('preferences.advanced.recording.directory.reset')}
+              </Button>
+            </div>
+          </div>
+        </SettingsField>
+
+        <SettingsField
+          label={t('preferences.advanced.recording.ffmpeg.label')}
+          description={t('preferences.advanced.recording.ffmpeg.description')}
+        >
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={ffmpegExecutableInput}
+                onChange={event => setFfmpegExecutableInput(event.target.value)}
+                placeholder={t('preferences.advanced.recording.ffmpeg.placeholder')}
+                disabled={!preferences || savePreferences.isPending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleBrowseFfmpegExecutable()}
+                disabled={!preferences || savePreferences.isPending}
+              >
+                {t('preferences.advanced.recording.ffmpeg.browse')}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={handleSaveFfmpegExecutable}
+                disabled={!preferences || savePreferences.isPending}
+              >
+                {t('preferences.advanced.recording.ffmpeg.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleResetFfmpegExecutable}
+                disabled={!preferences || savePreferences.isPending}
+              >
+                {t('preferences.advanced.recording.ffmpeg.reset')}
               </Button>
             </div>
           </div>

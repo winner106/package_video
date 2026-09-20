@@ -77,6 +77,36 @@ fn configured_recording_dir(app: &AppHandle) -> Result<Option<PathBuf>, String> 
         .map(PathBuf::from))
 }
 
+fn configured_ffmpeg_executable(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    let prefs_path = super::preferences::get_preferences_path(app)?;
+
+    if !prefs_path.exists() {
+        return Ok(None);
+    }
+
+    let content = match fs::read_to_string(&prefs_path) {
+        Ok(content) => content,
+        Err(error) => {
+            log::warn!("Failed to read preferences for ffmpeg path: {error}");
+            return Ok(None);
+        }
+    };
+
+    let preferences: AppPreferences = match serde_json::from_str(&content) {
+        Ok(preferences) => preferences,
+        Err(error) => {
+            log::warn!("Failed to parse preferences for ffmpeg path: {error}");
+            return Ok(None);
+        }
+    };
+
+    Ok(preferences
+        .ffmpeg_executable_path
+        .map(|path| path.trim().trim_matches('"').to_string())
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from))
+}
+
 fn recording_root_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let fallback_dir = app_data_dir(app)?.join("parcel-recordings");
     let target = configured_recording_dir(app)?.unwrap_or(fallback_dir);
@@ -105,8 +135,12 @@ fn ffmpeg_where_candidates() -> Vec<PathBuf> {
     }
 }
 
-fn ffmpeg_command_candidates() -> Vec<PathBuf> {
+fn ffmpeg_command_candidates(preferred_executable: Option<PathBuf>) -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Some(path) = preferred_executable {
+        candidates.push(path);
+    }
 
     if let Some(custom) = std::env::var_os("FFMPEG_PATH") {
         let custom_path = PathBuf::from(custom);
@@ -180,8 +214,9 @@ fn can_run_ffmpeg(candidate: &Path) -> bool {
     }
 }
 
-fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), String> {
-    let candidates = ffmpeg_command_candidates();
+fn transcode_webm_to_mp4(app: &AppHandle, input_path: &Path, output_path: &Path) -> Result<(), String> {
+    let preferred_executable = configured_ffmpeg_executable(app)?;
+    let candidates = ffmpeg_command_candidates(preferred_executable);
     let mut attempted: Vec<String> = Vec::new();
     let input_arg = input_path.to_string_lossy().to_string();
     let output_arg = output_path.to_string_lossy().to_string();
@@ -359,7 +394,7 @@ pub fn save_parcel_recording_mp4(
 
     fs::write(&temp_path, webm_data).map_err(|e| format!("Failed to write temporary recording: {e}"))?;
 
-    let transcode_result = transcode_webm_to_mp4(&temp_path, &output_path);
+    let transcode_result = transcode_webm_to_mp4(&app, &temp_path, &output_path);
 
     if let Err(remove_err) = fs::remove_file(&temp_path) {
         log::warn!("Failed to clean temporary webm file: {remove_err}");
