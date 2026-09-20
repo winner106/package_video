@@ -95,6 +95,12 @@ pub async fn save_preferences(app: AppHandle, mut preferences: AppPreferences) -
         .map(|path| path.trim().to_string())
         .filter(|path| !path.is_empty());
 
+    preferences.ffmpeg_executable_path = preferences
+        .ffmpeg_executable_path
+        .as_ref()
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty());
+
     log::debug!("Saving preferences to disk: {preferences:?}");
     let prefs_path = get_preferences_path(&app)?;
 

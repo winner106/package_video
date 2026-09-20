@@ -55,6 +55,9 @@ pub struct AppPreferences {
     /// Optional custom directory for parcel video recordings.
     /// If None, defaults to app data dir + parcel-recordings.
     pub recording_directory: Option<String>,
+    /// Optional custom ffmpeg executable path.
+    /// If None, the app attempts automatic ffmpeg discovery.
+    pub ffmpeg_executable_path: Option<String>,
 }
 
 impl Default for AppPreferences {
@@ -69,6 +72,7 @@ impl Default for AppPreferences {
             auto_start: Some(false), // Default to not auto-start
             mood_candidates: Some(default_mood_candidates()),
             recording_directory: None,
+            ffmpeg_executable_path: None,
         }
     }
 }
