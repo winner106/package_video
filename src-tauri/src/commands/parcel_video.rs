@@ -126,6 +126,8 @@ fn ffmpeg_command_candidates() -> Vec<PathBuf> {
 
         if let Some(user_profile) = std::env::var_os("USERPROFILE") {
             let user_home = PathBuf::from(user_profile);
+            candidates.push(user_home.join("ffmpeg.exe"));
+            candidates.push(user_home.join("ffmpeg/ffmpeg.exe"));
             candidates.push(user_home.join("ffmpeg/bin/ffmpeg.exe"));
             candidates.push(user_home.join("scoop/shims/ffmpeg.exe"));
             candidates.push(user_home.join("AppData/Local/Microsoft/WinGet/Links/ffmpeg.exe"));
@@ -181,6 +183,8 @@ fn can_run_ffmpeg(candidate: &Path) -> bool {
 fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), String> {
     let candidates = ffmpeg_command_candidates();
     let mut attempted: Vec<String> = Vec::new();
+    let input_arg = input_path.to_string_lossy().to_string();
+    let output_arg = output_path.to_string_lossy().to_string();
 
     for candidate in candidates {
         attempted.push(candidate.to_string_lossy().to_string());
@@ -194,7 +198,7 @@ fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), St
             &[
                 "-y",
                 "-i",
-                input_path.to_string_lossy().as_ref(),
+                input_arg.as_str(),
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -203,7 +207,7 @@ fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), St
                 "yuv420p",
                 "-movflags",
                 "+faststart",
-                output_path.to_string_lossy().as_ref(),
+                output_arg.as_str(),
             ],
         );
 
@@ -223,6 +227,39 @@ fn transcode_webm_to_mp4(input_path: &Path, output_path: &Path) -> Result<(), St
                     "Failed to execute ffmpeg binary '{}': {error}",
                     candidate.display()
                 ));
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let cmd_output = Command::new("cmd")
+            .arg("/C")
+            .arg("ffmpeg")
+            .arg("-y")
+            .arg("-i")
+            .arg(input_arg.as_str())
+            .arg("-c:v")
+            .arg("libx264")
+            .arg("-preset")
+            .arg("veryfast")
+            .arg("-pix_fmt")
+            .arg("yuv420p")
+            .arg("-movflags")
+            .arg("+faststart")
+            .arg(output_arg.as_str())
+            .output();
+
+        match cmd_output {
+            Ok(output) if output.status.success() => return Ok(()),
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if !stderr.trim().is_empty() {
+                    return Err(format!("ffmpeg transcoding failed via cmd: {stderr}"));
+                }
+            }
+            Err(_) => {
+                // Continue to final not found error with attempted candidate list.
             }
         }
     }
