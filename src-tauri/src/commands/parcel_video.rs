@@ -15,9 +15,9 @@ const MAX_BARCODE_LENGTH: usize = 120;
 pub struct SaveParcelRecordingResponse {
     pub file_name: String,
     pub file_path: String,
-    pub file_size_bytes: i64,
+    pub file_size_bytes: f64,
     pub deleted_files: Vec<String>,
-    pub total_size_bytes: i64,
+    pub total_size_bytes: f64,
 }
 
 fn sanitize_barcode(barcode: &str) -> String {
@@ -175,7 +175,7 @@ pub fn save_parcel_recording_mp4(
     app: AppHandle,
     barcode: String,
     webm_data: Vec<u8>,
-    max_storage_bytes: Option<i64>,
+    max_storage_bytes: Option<f64>,
 ) -> Result<SaveParcelRecordingResponse, String> {
     if barcode.trim().is_empty() {
         return Err("Barcode cannot be empty".to_string());
@@ -212,22 +212,25 @@ pub fn save_parcel_recording_mp4(
     let metadata = fs::metadata(&output_path).map_err(|e| format!("Failed to read output file metadata: {e}"))?;
 
     let max_bytes = match max_storage_bytes {
-        Some(value) if value > 0 => value as u64,
-        Some(_) => return Err("max_storage_bytes must be greater than 0".to_string()),
+        Some(value) if !value.is_finite() => {
+            return Err("max_storage_bytes must be a finite number".to_string());
+        }
+        Some(value) if value <= 0.0 => {
+            return Err("max_storage_bytes must be greater than 0".to_string());
+        }
+        Some(value) if value > (u64::MAX as f64) => {
+            return Err("max_storage_bytes exceeds supported range".to_string());
+        }
+        Some(value) => value.floor() as u64,
         None => DEFAULT_STORAGE_BYTES,
     };
     let (deleted_files, total_size_bytes) = enforce_storage_limit(&root_dir, max_bytes)?;
 
-    let file_size_bytes = i64::try_from(metadata.len())
-        .map_err(|_| "Recorded file size exceeds supported range".to_string())?;
-    let total_size_bytes = i64::try_from(total_size_bytes)
-        .map_err(|_| "Total recording size exceeds supported range".to_string())?;
-
     Ok(SaveParcelRecordingResponse {
         file_name,
         file_path: output_path.to_string_lossy().to_string(),
-        file_size_bytes,
+        file_size_bytes: metadata.len() as f64,
         deleted_files,
-        total_size_bytes,
+        total_size_bytes: total_size_bytes as f64,
     })
 }
