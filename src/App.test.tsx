@@ -7,7 +7,7 @@ import App from './App'
 describe('App', () => {
   it('renders main window layout', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: /hello world/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /扫码触发录像/i })).toBeInTheDocument()
   })
 
   it('renders title bar with traffic light buttons', () => {

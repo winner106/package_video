@@ -2,13 +2,15 @@ use tauri_specta::{collect_commands, Builder};
 
 // 前端 API 的注册中心，用于注册命令
 pub fn generate_bindings() -> Builder<tauri::Wry> {
-    use crate::commands::{notifications, preferences, quick_pane, recovery, tray};
+    use crate::commands::{notifications, parcel_video, preferences, quick_pane, recovery, tray};
 
     Builder::<tauri::Wry>::new().commands(collect_commands![
         preferences::greet,
         preferences::load_preferences,
         preferences::save_preferences,
         notifications::send_native_notification,
+        parcel_video::get_parcel_recording_directory,
+        parcel_video::save_parcel_recording_mp4,
         recovery::save_emergency_data,
         recovery::load_emergency_data,
         recovery::cleanup_old_recovery_files,
