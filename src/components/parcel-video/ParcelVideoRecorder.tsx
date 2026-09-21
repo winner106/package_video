@@ -1,3 +1,4 @@
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -7,6 +8,14 @@ import { commands } from '@/lib/tauri-bindings'
 import { usePreferences } from '@/services/preferences'
 
 type RecordingStatus = 'idle' | 'recording' | 'saving'
+
+interface ParcelRecordingItem {
+  file_name: string
+  file_path: string
+  file_size_bytes: number
+  modified_at_ms: number
+  barcode: string
+}
 
 const MAX_RECORDING_MS = 40_000
 const DEFAULT_STORAGE_GB = 100
@@ -29,6 +38,15 @@ function sanitizeBarcode(raw: string): string {
   return raw.trim()
 }
 
+function formatDateTime(timestampMs: number): string {
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return '未知时间'
+
+  const date = new Date(timestampMs)
+  if (Number.isNaN(date.getTime())) return '未知时间'
+
+  return date.toLocaleString()
+}
+
 export function ParcelVideoRecorder() {
   const [scanInput, setScanInput] = useState('')
   const [activeBarcode, setActiveBarcode] = useState<string | null>(null)
@@ -37,6 +55,10 @@ export function ParcelVideoRecorder() {
   const [recordingDir, setRecordingDir] = useState('')
   const [maxStorageGb, setMaxStorageGb] = useState<number>(DEFAULT_STORAGE_GB)
   const [countdownMs, setCountdownMs] = useState(0)
+  const [queryBarcodeInput, setQueryBarcodeInput] = useState('')
+  const [queryingRecordings, setQueryingRecordings] = useState(false)
+  const [queriedRecordings, setQueriedRecordings] = useState<ParcelRecordingItem[]>([])
+  const [selectedPlaybackPath, setSelectedPlaybackPath] = useState('')
   const { data: preferences } = usePreferences()
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -54,11 +76,14 @@ export function ParcelVideoRecorder() {
   }, [maxStorageGb])
 
   useEffect(() => {
-    commands.getParcelRecordingDirectory().then(result => {
+    const loadRecordingDirectory = async () => {
+      const result = await commands.getParcelRecordingDirectory()
       if (result.status === 'ok') {
         setRecordingDir(result.data)
       }
-    })
+    }
+
+    void loadRecordingDirectory()
   }, [preferences?.recording_directory])
 
   useEffect(() => {
@@ -258,6 +283,47 @@ export function ParcelVideoRecorder() {
     }
   }
 
+  const selectedPlaybackSrc = selectedPlaybackPath ? convertFileSrc(selectedPlaybackPath) : ''
+
+  const handleQueryRecordings = async () => {
+    const barcode = sanitizeBarcode(queryBarcodeInput)
+    if (!barcode) {
+      toast.message('请输入快递编号再查询')
+      return
+    }
+
+    setQueryingRecordings(true)
+
+    try {
+      const result = await commands.findParcelRecordingsByBarcode(barcode)
+      if (result.status === 'error') {
+        throw new Error(result.error)
+      }
+
+      const recordings = result.data as ParcelRecordingItem[]
+      setQueriedRecordings(recordings)
+
+      if (recordings.length === 0) {
+        setSelectedPlaybackPath('')
+        toast.message(`未找到快递编号 ${barcode} 的录像`)
+        return
+      }
+
+      const latestRecording = recordings[0]
+      if (!latestRecording) {
+        setSelectedPlaybackPath('')
+        return
+      }
+
+      setSelectedPlaybackPath(latestRecording.file_path)
+      toast.success(`找到 ${recordings.length} 条录像记录`)
+    } catch (error) {
+      toast.error(`查询录像失败：${String(error)}`)
+    } finally {
+      setQueryingRecordings(false)
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
       <h1 className="text-2xl font-semibold">扫码触发录像（测试版）</h1>
@@ -309,6 +375,64 @@ export function ParcelVideoRecorder() {
         <p>保存目录：{recordingDir || '加载中...'}</p>
         <p>最近保存：{lastSavedPath || '暂无'}</p>
         <p>容量策略：总量超过 {maxStorageGb || DEFAULT_STORAGE_GB}GB 时，按最旧录像开始删除。</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_auto]">
+        <Input
+          value={queryBarcodeInput}
+          onChange={event => setQueryBarcodeInput(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              void handleQueryRecordings()
+            }
+          }}
+          placeholder="输入快递编号查询历史录像"
+        />
+        <Button onClick={() => void handleQueryRecordings()} disabled={queryingRecordings}>
+          {queryingRecordings ? '查询中…' : '查询录像'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_420px]">
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="mb-3 text-sm font-medium text-foreground">查询结果</h2>
+          <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+            {queriedRecordings.length === 0 ? (
+              <p className="text-sm text-muted-foreground">暂无查询结果</p>
+            ) : (
+              queriedRecordings.map(item => {
+                const isSelected = item.file_path === selectedPlaybackPath
+                return (
+                  <button
+                    key={item.file_path}
+                    type="button"
+                    className={`w-full rounded-md border p-3 text-start transition-colors ${
+                      isSelected ? 'border-primary bg-primary/5' : 'hover:bg-accent'
+                    }`}
+                    onClick={() => setSelectedPlaybackPath(item.file_path)}
+                  >
+                    <p className="text-sm font-medium text-foreground">{item.file_name}</p>
+                    <p className="text-xs text-muted-foreground">快递编号：{item.barcode}</p>
+                    <p className="text-xs text-muted-foreground">时间：{formatDateTime(item.modified_at_ms)}</p>
+                    <p className="text-xs text-muted-foreground">大小：{formatBytes(item.file_size_bytes)}</p>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="mb-3 text-sm font-medium text-foreground">应用内播放</h2>
+          {selectedPlaybackSrc ? (
+            <video key={selectedPlaybackSrc} controls className="h-[320px] w-full rounded-md bg-black" src={selectedPlaybackSrc} />
+          ) : (
+            <div className="flex h-[320px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+              请选择一条录像进行播放
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
