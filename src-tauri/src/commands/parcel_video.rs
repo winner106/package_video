@@ -22,6 +22,15 @@ pub struct SaveParcelRecordingResponse {
     pub total_size_bytes: f64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ParcelRecordingItem {
+    pub file_name: String,
+    pub file_path: String,
+    pub file_size_bytes: f64,
+    pub modified_at_ms: f64,
+    pub barcode: String,
+}
+
 fn sanitize_barcode(barcode: &str) -> String {
     let mut sanitized = barcode
         .chars()
@@ -305,6 +314,17 @@ fn transcode_webm_to_mp4(app: &AppHandle, input_path: &Path, output_path: &Path)
     ))
 }
 
+fn extract_barcode_from_recording_file(path: &Path) -> Option<String> {
+    let file_stem = path.file_stem()?.to_str()?;
+    let (_, barcode_part) = file_stem.rsplit_once('_')?;
+
+    if barcode_part.is_empty() {
+        return None;
+    }
+
+    Some(barcode_part.to_string())
+}
+
 fn list_mp4_files(dir: &Path) -> Result<Vec<(PathBuf, u64, u128)>, String> {
     let mut files = Vec::new();
 
@@ -360,6 +380,58 @@ fn enforce_storage_limit(dir: &Path, max_storage_bytes: u64) -> Result<(Vec<Stri
 pub fn get_parcel_recording_directory(app: AppHandle) -> Result<String, String> {
     let dir = recording_root_dir(&app)?;
     Ok(dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn find_parcel_recordings_by_barcode(
+    app: AppHandle,
+    barcode: String,
+) -> Result<Vec<ParcelRecordingItem>, String> {
+    if barcode.trim().is_empty() {
+        return Err("Barcode cannot be empty".to_string());
+    }
+
+    if barcode.chars().count() > MAX_BARCODE_LENGTH {
+        return Err(format!(
+            "Barcode too long (max {MAX_BARCODE_LENGTH} characters)"
+        ));
+    }
+
+    let root_dir = recording_root_dir(&app)?;
+    let query_barcode = sanitize_barcode(barcode.trim());
+    let mut matches: Vec<(PathBuf, u64, u128, String)> = Vec::new();
+
+    for (path, size, modified) in list_mp4_files(&root_dir)? {
+        let Some(file_barcode) = extract_barcode_from_recording_file(&path) else {
+            continue;
+        };
+
+        if !file_barcode.eq_ignore_ascii_case(&query_barcode) {
+            continue;
+        }
+
+        matches.push((path, size, modified, file_barcode));
+    }
+
+    matches.sort_by(|a, b| b.2.cmp(&a.2));
+
+    let recordings = matches
+        .into_iter()
+        .map(|(path, size, modified, file_barcode)| ParcelRecordingItem {
+            file_name: path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| path.to_string_lossy().to_string()),
+            file_path: path.to_string_lossy().to_string(),
+            file_size_bytes: size as f64,
+            modified_at_ms: modified as f64,
+            barcode: file_barcode,
+        })
+        .collect();
+
+    Ok(recordings)
 }
 
 #[tauri::command]

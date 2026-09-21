@@ -63,6 +63,14 @@ async getParcelRecordingDirectory() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async findParcelRecordingsByBarcode(barcode: string) : Promise<Result<ParcelRecordingItem[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("find_parcel_recordings_by_barcode", { barcode }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async saveParcelRecordingMp4(barcode: string, webmData: number[], maxStorageBytes: number | null) : Promise<Result<SaveParcelRecordingResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("save_parcel_recording_mp4", { barcode, webmData, maxStorageBytes }) };
@@ -222,6 +230,7 @@ recording_directory: string | null;
  */
 ffmpeg_executable_path: string | null }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
+export type ParcelRecordingItem = { file_name: string; file_path: string; file_size_bytes: number; modified_at_ms: number; barcode: string }
 /**
  * Error types for recovery operations (typed for frontend matching)
  */

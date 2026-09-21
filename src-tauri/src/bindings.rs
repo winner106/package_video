@@ -10,6 +10,7 @@ pub fn generate_bindings() -> Builder<tauri::Wry> {
         preferences::save_preferences,
         notifications::send_native_notification,
         parcel_video::get_parcel_recording_directory,
+        parcel_video::find_parcel_recordings_by_barcode,
         parcel_video::save_parcel_recording_mp4,
         recovery::save_emergency_data,
         recovery::load_emergency_data,

@@ -60,6 +60,18 @@ vi.mock('@/lib/tauri-bindings', () => ({
         total_size_bytes: 1024,
       },
     }),
+    findParcelRecordingsByBarcode: vi.fn().mockResolvedValue({
+      status: 'ok',
+      data: [
+        {
+          file_name: '20260920_101010_TEST123.mp4',
+          file_path: '/tmp/parcel-recordings/20260920_101010_TEST123.mp4',
+          file_size_bytes: 1024,
+          modified_at_ms: Date.now(),
+          barcode: 'TEST123',
+        },
+      ],
+    }),
     sendNativeNotification: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
     saveEmergencyData: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
     loadEmergencyData: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
